@@ -1,0 +1,136 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-conf
+data:
+  nginx.conf: |
+    events {
+      worker_connections  10240;
+    }
+    http {
+      server {
+          listen       80;
+          server_name test1.awsl.me;
+          sub_filter_once off;
+          sub_filter_types *;
+          sub_filter static.parastorage.com $http_host/static;
+          sub_filter siteassets.parastorage.com $http_host/siteassets;
+          sub_filter ding.wix.com $http_host/ding;
+          #sub_filter frog.wix.com $http_host/frog;
+          sub_filter www.iotex.io $http_host;
+          sub_filter progallery.wix.com $http_host/progallery;
+          sub_filter vod-server.wix.com $http_host/vod-server;
+
+
+          location / {
+            proxy_pass https://iotex.io/;
+            proxy_redirect off;
+            proxy_http_version 1.1;
+            proxy_ssl_server_name on;
+            proxy_set_header Accept-Encoding '';
+
+            proxy_hide_header Link;
+            proxy_set_header HOST www.iotex.io;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          }
+
+          location /static/ {
+            proxy_set_header Accept-Encoding '';
+            proxy_pass  https://static.parastorage.com/;
+          }
+
+          location /ding/ {
+            proxy_set_header Accept-Encoding '';
+            proxy_pass  https://ding.wix.com/;
+          }
+
+          location /progallery/ {
+            proxy_set_header Accept-Encoding '';
+            proxy_pass  https://progallery.wix.com/;
+          }
+          location /frog/ {
+            proxy_set_header Accept-Encoding '';
+            proxy_pass  https://frog.wix.com/;
+          }
+          location /siteassets/ {
+            proxy_set_header Accept-Encoding '';
+            proxy_pass  https://siteassets.parastorage.com/;
+          }
+          location /vod-server/ {
+            proxy_pass  https://vod-server.wix.com/;
+            proxy_redirect off;
+            proxy_http_version 1.1;
+            proxy_ssl_server_name on;
+            proxy_set_header Accept-Encoding '';
+
+            proxy_hide_header Link;
+            proxy_set_header HOST vod-server.wix.com;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          }
+      }
+    }
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+        - name: nginx
+          image: nginx
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - mountPath: /etc/nginx # mount nginx-conf volumn to /etc/nginx
+              readOnly: true
+              name: nginx-conf
+            - mountPath: /var/log/nginx
+              name: log
+      volumes:
+        - name: nginx-conf
+          configMap:
+            name: nginx-conf # place ConfigMap `nginx-conf` on /etc/nginx
+            items:
+              - key: nginx.conf
+                path: nginx.conf
+        - name: log
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+spec:
+  type: LoadBalancer
+  ports:
+    - name: nginx
+      port: 80
+  selector:
+    app: nginx
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: nginx
+spec:
+  rules:
+    - host: test1.awsl.me
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: nginx
+              servicePort: nginx
