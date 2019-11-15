@@ -16,7 +16,7 @@ data:
           sub_filter static.parastorage.com $http_host/static;
           sub_filter siteassets.parastorage.com $http_host/siteassets;
           sub_filter ding.wix.com $http_host/ding;
-          #sub_filter frog.wix.com $http_host/frog;
+          sub_filter frog.wix.com $http_host/frog;
           sub_filter www.iotex.io $http_host;
           sub_filter progallery.wix.com $http_host/progallery;
           sub_filter vod-server.wix.com $http_host/vod-server;
@@ -78,7 +78,7 @@ kind: Deployment
 metadata:
   name: nginx
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: nginx
